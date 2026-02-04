@@ -3,51 +3,171 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <!-- ИСПРАВЛЕННЫЕ СКРИПТЫ -->
-    <script src="https://aframe.min.js"></script>
-    <script src="https://mindar-image-aframe.prod.js"></script>
+    
+    <!-- ПРАВИЛЬНЫЕ ССЫЛКИ НА СКРИПТЫ -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+    
     <style>
-      body { margin: 0; overflow: hidden; background-color: black; }
-      #ui { position: fixed; top: 20px; left: 20px; z-index: 1000; color: #00ff00; font-family: monospace; font-size: 14px; pointer-events: none; }
-      #start-btn { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; padding: 15px 30px; background: #00ff00; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
-      video { opacity: 0.5; } /* Чтобы видеть, что камера включилась под UI */
+      body { 
+        margin: 0; 
+        overflow: hidden; 
+        background-color: black; 
+        font-family: Arial, sans-serif;
+      }
+      #ui { 
+        position: fixed; 
+        top: 20px; 
+        left: 20px; 
+        z-index: 1000; 
+        color: #00ff00; 
+        font-family: monospace; 
+        font-size: 14px; 
+        pointer-events: none; 
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+      }
+      #start-btn { 
+        position: fixed; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        z-index: 1001; 
+        padding: 15px 30px; 
+        background: linear-gradient(45deg, #00ff00, #00cc00); 
+        color: black;
+        border: none; 
+        font-weight: bold; 
+        cursor: pointer; 
+        border-radius: 5px; 
+        font-size: 16px;
+        transition: all 0.3s;
+      }
+      #start-btn:hover {
+        background: linear-gradient(45deg, #00ff00, #00ff88);
+        box-shadow: 0 0 15px #00ff00;
+      }
+      #status {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: #00ff00;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 1000;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 8px;
+        border-radius: 5px;
+      }
     </style>
   </head>
   <body>
-    <div id="ui">>> DICHOTOMIUM SYSTEM ACTIVE_<br>>> SCANNING FOR GLYPHS...</div>
+    <div id="ui">
+      >> DICHOTOMIUM SYSTEM ACTIVE_<br>
+      >> SCANNING FOR GLYPHS...<br>
+      >> STATUS: <span id="status-text">STANDBY</span>
+    </div>
+    
+    <div id="status">
+      Camera: <span id="camera-status">OFF</span> | 
+      Targets: <span id="targets-loaded">0</span>
+    </div>
+    
     <button id="start-btn">INITIALIZE SCANNER</button>
 
     <a-scene 
-      mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; filterMinCF: 0.001; filterBeta: 0.01;" 
-      embedded color-space="sRGB" 
+      mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; uiScanning: #ui; uiLoading: #ui;" 
+      embedded 
+      color-space="sRGB" 
       renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true" 
       vr-mode-ui="enabled: false" 
       device-orientation-permission-ui="enabled: false">
       
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- ВОЗВРАЩЕННЫЙ ТАРГЕТ -->
+      <!-- ТАРГЕТ ДЛЯ ОБНАРУЖЕНИЯ -->
+      <a-entity mindar-image-target="targetIndex: 0">
+        <a-gltf-model 
+          src="./Ring.glb" 
+          position="0 0 0" 
+          rotation="0 0 0" 
+          scale="0.1 0.1 0.1"
+          animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+        </a-gltf-model>
+      </a-entity>
       
-        <a-gltf-model src="./Ring.glb" position="0 0 0" rotation="0 0 0" scale="0.1 0.1 0.1"></a-gltf-model>
+      <!-- ФОНОВЫЙ СВЕТ -->
+      <a-light type="ambient" color="#ffffff" intensity="0.4"></a-light>
+      <a-light type="directional" position="1 1 1" intensity="0.6"></a-light>
       
     </a-scene>
 
     <script>
       const startBtn = document.querySelector('#start-btn');
       const sceneEl = document.querySelector('a-scene');
+      const statusText = document.querySelector('#status-text');
+      const cameraStatus = document.querySelector('#camera-status');
 
-      startBtn.addEventListener('click', () => {
-        // Проверяем систему перед запуском
-        if (sceneEl.systems['mindar-image-system']) {
-          sceneEl.systems['mindar-image-system'].start(); 
-          startBtn.style.display = 'none';
-        } else {
-          alert("Система загружается... Попробуйте еще раз через 3 секунды");
+      // Проверяем доступность MindAR
+      startBtn.addEventListener('click', async () => {
+        try {
+          if (!sceneEl.systems['mindar-image-system']) {
+            statusText.textContent = 'LOADING MODULES...';
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          if (sceneEl.systems['mindar-image-system']) {
+            sceneEl.systems['mindar-image-system'].start(); 
+            startBtn.style.display = 'none';
+            statusText.textContent = 'SCANNING...';
+            cameraStatus.textContent = 'ON';
+            
+            // Проверяем количество загруженных таргетов
+            const targets = sceneEl.querySelectorAll('[mindar-image-target]');
+            document.querySelector('#targets-loaded').textContent = targets.length;
+          } else {
+            statusText.textContent = 'ERROR: SYSTEM NOT FOUND';
+            alert("Система AR не загрузилась. Проверьте консоль на наличие ошибок.");
+          }
+        } catch (error) {
+          console.error("Ошибка при запуске:", error);
+          alert("Ошибка: " + error.message);
         }
       });
 
+      // Обработчики событий MindAR
+      sceneEl.addEventListener("arReady", () => {
+        console.log("MindAR готов к работе");
+        statusText.textContent = 'READY';
+      });
+
       sceneEl.addEventListener("arError", (event) => {
+        console.error("Ошибка AR:", event.detail.error);
+        statusText.textContent = 'ERROR';
         alert("Ошибка камеры: " + event.detail.error);
+      });
+
+      // Обнаружение таргета
+      sceneEl.addEventListener('targetFound', () => {
+        statusText.textContent = 'TARGET FOUND';
+        document.querySelector('#ui').style.color = '#00ff00';
+      });
+
+      sceneEl.addEventListener('targetLost', () => {
+        statusText.textContent = 'SCANNING...';
+      });
+
+      // Автозапуск при загрузке (опционально)
+      window.addEventListener('load', () => {
+        console.log("Страница загружена, проверяем систему...");
+        
+        // Скрываем кнопку если AR сразу доступно
+        setTimeout(() => {
+          if (sceneEl.systems['mindar-image-system']) {
+            startBtn.textContent = "SCANNER READY - CLICK TO START";
+          }
+        }, 1000);
       });
     </script>
   </body>
