@@ -3,20 +3,20 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <script src="https://aframe.io"></script>
-    <script src="https://cdn.jsdelivr.net"></script>
+    <!-- ИСПРАВЛЕННЫЕ СКРИПТЫ -->
+    <script src="https://aframe.min.js"></script>
+    <script src="https://mindar-image-aframe.prod.js"></script>
     <style>
       body { margin: 0; overflow: hidden; background-color: black; }
       #ui { position: fixed; top: 20px; left: 20px; z-index: 1000; color: #00ff00; font-family: monospace; font-size: 14px; pointer-events: none; }
-      /* Кнопка старта, если камера не зажглась сама */
-      #start-btn { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; padding: 15px 30px; background: #00ff00; border: none; font-weight: bold; cursor: pointer; }
+      #start-btn { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; padding: 15px 30px; background: #00ff00; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
+      video { opacity: 0.5; } /* Чтобы видеть, что камера включилась под UI */
     </style>
   </head>
   <body>
     <div id="ui">>> DICHOTOMIUM SYSTEM ACTIVE_<br>>> SCANNING FOR GLYPHS...</div>
     <button id="start-btn">INITIALIZE SCANNER</button>
 
-    <!-- Сцена с прозрачным фоном renderer="alpha: true" -->
     <a-scene 
       mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; filterMinCF: 0.001; filterBeta: 0.01;" 
       embedded color-space="sRGB" 
@@ -26,38 +26,29 @@
       
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
+      <!-- ВОЗВРАЩЕННЫЙ ТАРГЕТ -->
       
-        <!-- Твоя модель. Попробуй scale="0.1 0.1 0.1" если она очень большая -->
-        <a-gltf-model src="./Ring.glb" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-gltf-model>
+        <a-gltf-model src="./Ring.glb" position="0 0 0" rotation="0 0 0" scale="0.1 0.1 0.1"></a-gltf-model>
       
     </a-scene>
 
     <script>
-     const startBtn = document.querySelector('#start-btn');
-     const sceneEl = document.querySelector('a-scene');
+      const startBtn = document.querySelector('#start-btn');
+      const sceneEl = document.querySelector('a-scene');
 
-  // Слушаем событие готовности системы
-  sceneEl.addEventListener('loaded', () => {
-    console.log("Scene loaded");
-  });
+      startBtn.addEventListener('click', () => {
+        // Проверяем систему перед запуском
+        if (sceneEl.systems['mindar-image-system']) {
+          sceneEl.systems['mindar-image-system'].start(); 
+          startBtn.style.display = 'none';
+        } else {
+          alert("Система загружается... Попробуйте еще раз через 3 секунды");
+        }
+      });
 
-  startBtn.addEventListener('click', () => {
-    console.log("Attempting to start AR...");
-    
-    // Проверяем, существует ли система MindAR в сцене
-    if (sceneEl.systems['mindar-image-system']) {
-      sceneEl.systems['mindar-image-system'].start(); 
-      startBtn.style.display = 'none';
-    } else {
-      alert("AR System not ready. Please wait 5 seconds and try again.");
-    }
-  });
-
-  // Обработка ошибок камеры
-  sceneEl.addEventListener("arError", (event) => {
-    alert("AR Error: " + event.detail.error);
-  });
-</script>
-
+      sceneEl.addEventListener("arError", (event) => {
+        alert("Ошибка камеры: " + event.detail.error);
+      });
+    </script>
   </body>
 </html>
