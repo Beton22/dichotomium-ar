@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io"></script>
+    <script src="https://cdn.jsdelivr.net"></script>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #ui { position: fixed; top: 10px; left: 10px; z-index: 999; color: white; font-family: sans-serif; text-shadow: 1px 1px 2px black; }
+    </style>
+  </head>
+  <body>
+    <div id="ui">DICHOTOMIUM: Scanner Active</div>
+    
+    <!-- imageTargetSrc — путь к твоему mind-файлу -->
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind; filterMinCF: 0.001; filterBeta: 0.01;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- targetIndex: 0 (первый и единственный маркер в файле) -->
+      
+        <!-- src — путь к твоей модели Ring.glb -->
+        <a-gltf-model src="./Ring.glb" position="0 0 0" rotation="0 0 0" scale="1 1 1"></a-gltf-model>
+      
+    </a-scene>
+  </body>
+</html>
