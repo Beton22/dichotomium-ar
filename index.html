@@ -33,14 +33,31 @@
     </a-scene>
 
     <script>
-      const startBtn = document.querySelector('#start-btn');
-      const sceneEl = document.querySelector('a-scene');
-      
-      startBtn.addEventListener('click', () => {
-        const { systems } = sceneEl;
-        systems['mindar-image-system'].start(); // Ручной запуск MindAR
-        startBtn.style.display = 'none'; // Убираем кнопку
-      });
-    </script>
+     const startBtn = document.querySelector('#start-btn');
+     const sceneEl = document.querySelector('a-scene');
+
+  // Слушаем событие готовности системы
+  sceneEl.addEventListener('loaded', () => {
+    console.log("Scene loaded");
+  });
+
+  startBtn.addEventListener('click', () => {
+    console.log("Attempting to start AR...");
+    
+    // Проверяем, существует ли система MindAR в сцене
+    if (sceneEl.systems['mindar-image-system']) {
+      sceneEl.systems['mindar-image-system'].start(); 
+      startBtn.style.display = 'none';
+    } else {
+      alert("AR System not ready. Please wait 5 seconds and try again.");
+    }
+  });
+
+  // Обработка ошибок камеры
+  sceneEl.addEventListener("arError", (event) => {
+    alert("AR Error: " + event.detail.error);
+  });
+</script>
+
   </body>
 </html>
