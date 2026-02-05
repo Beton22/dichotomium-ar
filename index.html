@@ -3,218 +3,477 @@
 <head>
     <meta charset="utf-8">
     <title>AR Scanner</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     
-    <!-- Локальный MindAR (уже есть) -->
+    <!-- MindAR локально -->
     <script src="mindar-image-aframe.prod.js"></script>
     
-    <!-- А этот скрипт ЗАМЕНИТЬ на содержимое aframe.min.js -->
-    <!-- Мы встроим A-Frame прямо в страницу -->
-    
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: black;
-            color: lime;
-            font-family: monospace;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #000; 
+            color: #0f0; 
+            font-family: 'Courier New', monospace;
+            width: 100vw; 
+            height: 100vh; 
             overflow: hidden;
         }
         
         #loader {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             background: #000;
             z-index: 1000;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-        }
-        
-        #console {
-            background: #111;
-            border: 2px solid lime;
+            text-align: center;
             padding: 20px;
-            max-width: 400px;
-            border-radius: 5px;
         }
         
-        .line {
-            margin: 5px 0;
-            color: lime;
+        .console {
+            background: rgba(20, 20, 20, 0.9);
+            border: 2px solid #0f0;
+            border-radius: 8px;
+            padding: 25px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+        }
+        
+        .status-line {
+            margin: 8px 0;
+            color: #0f0;
+            font-size: 16px;
         }
         
         .blink {
-            animation: blink 1s infinite;
+            animation: blink 1.5s infinite;
         }
         
         @keyframes blink {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.3; }
         }
         
         button {
-            background: lime;
-            color: black;
+            background: linear-gradient(135deg, #0f0, #0a0);
+            color: #000;
             border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            margin-top: 20px;
-            cursor: pointer;
+            padding: 18px 40px;
+            font-size: 20px;
             font-weight: bold;
-            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 30px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #0f0, #0f0);
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.8);
         }
         
         button:disabled {
             background: #333;
             color: #666;
             cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
         }
         
         #error {
-            color: red;
-            margin-top: 15px;
-            padding: 10px;
-            background: rgba(255,0,0,0.1);
-            border-radius: 3px;
+            color: #f00;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border: 1px solid #f00;
             display: none;
+        }
+        
+        #camera-feed {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            z-index: 900;
+            display: none;
+        }
+        
+        #debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            font-size: 12px;
+            color: #888;
+            background: rgba(0,0,0,0.7);
+            padding: 8px;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
+    <!-- Тестовый видеоэлемент для камеры -->
+    <video id="camera-feed" autoplay playsinline muted></video>
+    
     <div id="loader">
-        <div id="console">
-            <div class="line">>> SYSTEM INITIALIZATION</div>
-            <div class="line">>> LOADING CORE MODULES...</div>
-            <div class="line" id="status1">AFrame: <span id="aframe-status">PENDING</span></div>
-            <div class="line" id="status2">MindAR: <span id="mindar-status">PENDING</span></div>
-            <div class="line blink" id="main-status">>>> READY</div>
+        <div class="console">
+            <h2 style="color: #0f0; margin-bottom: 20px;">🧬 AR SCANNER SYSTEM</h2>
             
-            <button id="start-btn" onclick="startAR()">INITIALIZE AR</button>
+            <div class="status-line">>>> System Boot Sequence</div>
+            <div class="status-line">>>> Loading Core Modules...</div>
+            <div class="status-line">>>> A-Frame Status: <span id="aframe-status">WAITING...</span></div>
+            <div class="status-line">>>> MindAR Status: <span id="mindar-status">WAITING...</span></div>
+            <div class="status-line">>>> Camera Status: <span id="camera-status">READY</span></div>
+            <div class="status-line blink" id="main-status">>>> AWAITING USER INPUT</div>
+            
+            <button id="start-btn" onclick="initAR()">🎮 INITIALIZE AR</button>
             
             <div id="error"></div>
             
-            <div style="margin-top: 20px; font-size: 12px; color: #888;">
-                beton22.github.io | Local AR Build
+            <div style="margin-top: 30px; font-size: 14px; color: #888;">
+                <div>Device: <span id="device-info">Detecting...</span></div>
+                <div>Browser: <span id="browser-info">Detecting...</span></div>
             </div>
         </div>
     </div>
+    
+    <div id="debug-info">
+        Console: <span id="console-status">Initializing...</span>
+    </div>
 
     <!-- Контейнер для AR сцены -->
-    <div id="ar-container" style="width:100vw; height:100vh; position:fixed; top:0; left:0;"></div>
+    <div id="ar-container" style="position:fixed; top:0; left:0; width:100%; height:100%;"></div>
 
-    <!-- ВСТРОЕННЫЙ A-FRAME ПРЯМО В КОДЕ -->
-    <!-- Вставьте сюда содержимое файла aframe.min.js -->
-    
+    <!-- Встроенный минимальный A-Frame -->
     <script>
-        // ===== НАЧАЛО A-FRAME ===== 
-        // Вставьте сюда содержимое файла aframe.min.js
-        // Скачать его можно по ссылке:
-        // https://raw.githubusercontent.com/aframevr/aframe/v1.4.0/dist/aframe.min.js
-        // Или использовать эту сокращенную версию:
-        
-        console.log("Loading embedded A-Frame...");
-        
         // Минимальная версия A-Frame для запуска
-        window.AFRAME = {
-            version: '1.4.0',
+        console.log("⚡ Initializing A-Frame...");
+        window.AFRAME = window.AFRAME || {
+            version: '1.4.0-mini',
             components: {},
             systems: {},
             scenes: [],
-            registerComponent: function(name, definition) {
-                this.components[name] = definition;
+            registerComponent: function(name, def) {
+                this.components[name] = def;
+                console.log("Component registered:", name);
             },
-            registerSystem: function(name, definition) {
-                this.systems[name] = definition;
+            registerSystem: function(name, def) {
+                this.systems[name] = { 
+                    ...def,
+                    start: function() {
+                        console.log("System started:", name);
+                        if (def.start) def.start.call(this);
+                    }
+                };
                 console.log("System registered:", name);
             }
         };
         
-        // Минимальные компоненты для работы
-        setTimeout(function() {
-            if (AFRAME.systems['mindar-image-system']) {
-                document.getElementById('aframe-status').innerHTML = '✅ LOADED';
-                document.getElementById('mindar-status').innerHTML = '✅ LOADED';
-                document.getElementById('main-status').innerHTML = '>>> SYSTEM READY';
-                document.getElementById('start-btn').disabled = false;
-                console.log("All systems ready!");
+        // Определяем устройство и браузер
+        document.getElementById('device-info').textContent = navigator.platform || 'Unknown';
+        document.getElementById('browser-info').textContent = navigator.userAgent.substring(0, 50) + '...';
+        
+        // Проверяем загрузку MindAR
+        function checkMindAR() {
+            console.log("🔍 Checking MindAR...");
+            
+            if (window.AFRAME && AFRAME.systems && AFRAME.systems['mindar-image-system']) {
+                console.log("✅ MindAR system found!");
+                document.getElementById('mindar-status').innerHTML = '<span style="color:#0f0">✅ LOADED</span>';
+                document.getElementById('aframe-status').innerHTML = '<span style="color:#0f0">✅ READY</span>';
+                document.getElementById('main-status').textContent = '>>> SYSTEM READY';
+                document.getElementById('console-status').textContent = 'Systems loaded';
+                return true;
             } else {
-                console.log("Waiting for MindAR...");
-                // Проверим через 2 секунды
-                setTimeout(function() {
-                    if (AFRAME.systems['mindar-image-system']) {
-                        document.getElementById('aframe-status').innerHTML = '✅ LOADED';
-                        document.getElementById('mindar-status').innerHTML = '✅ LOADED';
-                        document.getElementById('main-status').innerHTML = '>>> SYSTEM READY';
-                        document.getElementById('start-btn').disabled = false;
-                    }
-                }, 2000);
+                console.log("⏳ MindAR not yet loaded...");
+                setTimeout(checkMindAR, 1000);
+                return false;
             }
-        }, 1000);
-        
-        // ===== КОНЕЦ A-FRAME =====
-        
-        // Функция запуска AR
-        function startAR() {
-            console.log("Starting AR...");
-            document.getElementById('main-status').innerHTML = '>>> REQUESTING CAMERA...';
-            document.getElementById('start-btn').disabled = true;
-            
-            // Создаем AR сцену
-            const sceneHTML = `
-                <a-scene 
-                    mindar-image="imageTargetSrc: targets.mind; autoStart: false;"
-                    vr-mode-ui="enabled: false"
-                    device-orientation-permission-ui="enabled: false"
-                    embedded
-                    style="width:100%; height:100%;"
-                >
-                    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-                    
-                    <a-entity mindar-image-target="targetIndex: 0">
-                        <a-box position="0 0 0" color="lime" scale="0.2 0.2 0.2"
-                               animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
-                        </a-box>
-                    </a-entity>
-                    
-                    <a-light type="ambient" color="#FFF" intensity="0.5"></a-light>
-                    <a-light type="directional" position="1 1 1" intensity="0.5"></a-light>
-                </a-scene>
-            `;
-            
-            document.getElementById('ar-container').innerHTML = sceneHTML;
-            
-            // Запрашиваем камеру
-            navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            })
-            .then(function(stream) {
-                console.log("Camera access granted");
-                stream.getTracks().forEach(track => track.stop());
-                
-                // Запускаем MindAR
-                const scene = document.querySelector('a-scene');
-                if (scene && scene.systems['mindar-image-system']) {
-                    scene.systems['mindar-image-system'].start();
-                    
-                    // Скрываем loader
-                    setTimeout(function() {
-                        document.getElementById('loader').style.display = 'none';
-                        console.log("AR started successfully!");
-                    }, 1000);
-                }
-            })
-            .catch(function(error) {
-                console.error("Camera error:", error);
-                document.getElementById('error').innerHTML = 'Camera Error: ' + error.message;
-                document.getElementById('error').style.display = 'block';
-                document.getElementById('start-btn').disabled = false;
-            });
         }
+        
+        // Запускаем проверку через 1 секунду
+        setTimeout(checkMindAR, 1000);
+        
+        // Тест камеры без AR
+        async function testCamera() {
+            console.log("📷 Testing camera...");
+            document.getElementById('camera-status').innerHTML = '<span style="color:#ff0">TESTING...</span>';
+            
+            try {
+                // Сначала пробуем фронтальную камеру
+                const testStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'user',  // фронтальная камера
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                });
+                
+                // Показываем камеру в тестовом элементе
+                const video = document.getElementById('camera-feed');
+                video.srcObject = testStream;
+                video.style.display = 'block';
+                
+                console.log("✅ Front camera works!");
+                document.getElementById('camera-status').innerHTML = '<span style="color:#0f0">✅ FRONT CAMERA OK</span>';
+                
+                // Останавливаем тестовый поток через 2 секунды
+                setTimeout(() => {
+                    testStream.getTracks().forEach(track => track.stop());
+                    video.style.display = 'none';
+                    video.srcObject = null;
+                    document.getElementById('camera-status').innerHTML = '<span style="color:#0f0">✅ TEST PASSED</span>';
+                }, 2000);
+                
+                return true;
+                
+            } catch (err) {
+                console.error("❌ Camera test failed:", err);
+                document.getElementById('camera-status').innerHTML = '<span style="color:#f00">❌ TEST FAILED</span>';
+                
+                // Показываем подробную ошибку
+                let errorMsg = "Camera Error: ";
+                if (err.name === 'NotAllowedError') {
+                    errorMsg = "📵 Camera access denied. Please allow camera access in browser settings.";
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg = "📷 No camera found on this device.";
+                } else if (err.name === 'NotReadableError') {
+                    errorMsg = "⚠️ Camera is already in use by another application.";
+                } else {
+                    errorMsg = "❌ Unknown camera error: " + err.message;
+                }
+                
+                document.getElementById('error').innerHTML = errorMsg;
+                document.getElementById('error').style.display = 'block';
+                return false;
+            }
+        }
+        
+        // Основная функция инициализации AR
+        async function initAR() {
+            console.log("🚀 Starting AR initialization...");
+            
+            const startBtn = document.getElementById('start-btn');
+            const mainStatus = document.getElementById('main-status');
+            const errorDiv = document.getElementById('error');
+            
+            // Отключаем кнопку и меняем статус
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ INITIALIZING...';
+            mainStatus.textContent = '>>> CHECKING PERMISSIONS...';
+            errorDiv.style.display = 'none';
+            
+            // 1. Сначала тестируем камеру
+            const cameraTest = await testCamera();
+            if (!cameraTest) {
+                startBtn.disabled = false;
+                startBtn.textContent = '🔄 RETRY CAMERA';
+                return;
+            }
+            
+            // 2. Проверяем MindAR
+            if (!AFRAME.systems['mindar-image-system']) {
+                mainStatus.textContent = '>>> ERROR: MINDAR NOT LOADED';
+                errorDiv.innerHTML = "MindAR system not found. Please reload the page.";
+                errorDiv.style.display = 'block';
+                startBtn.disabled = false;
+                startBtn.textContent = '🔄 RELOAD PAGE';
+                return;
+            }
+            
+            // 3. Создаем AR сцену
+            mainStatus.textContent = '>>> CREATING AR ENVIRONMENT...';
+            console.log("Creating AR scene...");
+            
+            try {
+                // Очищаем контейнер
+                document.getElementById('ar-container').innerHTML = '';
+                
+                // Создаем новую сцену
+                const scene = document.createElement('a-scene');
+                scene.setAttribute('mindar-image', `
+                    imageTargetSrc: targets.mind;
+                    autoStart: false;
+                    uiScanning: no;
+                    uiLoading: no;
+                    maxTrack: 2;
+                `);
+                scene.setAttribute('vr-mode-ui', 'enabled: false');
+                scene.setAttribute('device-orientation-permission-ui', 'enabled: false');
+                scene.setAttribute('embedded', '');
+                scene.style.width = '100%';
+                scene.style.height = '100%';
+                scene.style.position = 'absolute';
+                scene.style.top = '0';
+                scene.style.left = '0';
+                
+                // Камера AR
+                const camera = document.createElement('a-camera');
+                camera.setAttribute('position', '0 0 0');
+                camera.setAttribute('look-controls', 'enabled: false');
+                scene.appendChild(camera);
+                
+                // Тестовый объект (на случай если targets.mind не работает)
+                const targetEntity = document.createElement('a-entity');
+                targetEntity.setAttribute('mindar-image-target', 'targetIndex: 0');
+                
+                const testObject = document.createElement('a-box');
+                testObject.setAttribute('position', '0 0 0');
+                testObject.setAttribute('color', '#00ff00');
+                testObject.setAttribute('scale', '0.15 0.15 0.15');
+                testObject.setAttribute('animation', `
+                    property: rotation;
+                    to: 0 360 0;
+                    loop: true;
+                    dur: 8000;
+                    easing: linear
+                `);
+                
+                targetEntity.appendChild(testObject);
+                scene.appendChild(targetEntity);
+                
+                // Освещение
+                const ambientLight = document.createElement('a-light');
+                ambientLight.setAttribute('type', 'ambient');
+                ambientLight.setAttribute('color', '#ffffff');
+                ambientLight.setAttribute('intensity', '0.6');
+                scene.appendChild(ambientLight);
+                
+                const directionalLight = document.createElement('a-light');
+                directionalLight.setAttribute('type', 'directional');
+                directionalLight.setAttribute('position', '2 5 3');
+                directionalLight.setAttribute('intensity', '0.5');
+                directionalLight.setAttribute('cast-shadow', '');
+                scene.appendChild(directionalLight);
+                
+                // Добавляем сцену на страницу
+                document.getElementById('ar-container').appendChild(scene);
+                
+                // Ждем загрузки сцены
+                scene.addEventListener('loaded', function() {
+                    console.log("✅ AR scene loaded");
+                    mainStatus.textContent = '>>> STARTING AR...';
+                    
+                    // Запрашиваем заднюю камеру для AR
+                    navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment',  // задняя камера
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    })
+                    .then(function(stream) {
+                        console.log("✅ Rear camera access granted");
+                        
+                        // Запускаем MindAR систему
+                        const mindarSystem = scene.systems['mindar-image-system'];
+                        if (mindarSystem && mindarSystem.start) {
+                            mindarSystem.start();
+                            
+                            // Скрываем loader через 1 секунду
+                            setTimeout(function() {
+                                document.getElementById('loader').style.display = 'none';
+                                console.log("🎉 AR system started successfully!");
+                                mainStatus.textContent = '>>> AR ACTIVE';
+                            }, 1000);
+                            
+                        } else {
+                            throw new Error("MindAR start method not found");
+                        }
+                        
+                        // Останавливаем тестовый поток
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                    })
+                    .catch(function(err) {
+                        console.error("❌ Rear camera error:", err);
+                        
+                        // Пробуем с фронтальной камерой как запасной вариант
+                        navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: 'user' }
+                        })
+                        .then(function(fallbackStream) {
+                            console.log("✅ Using front camera as fallback");
+                            const mindarSystem = scene.systems['mindar-image-system'];
+                            if (mindarSystem) mindarSystem.start();
+                            
+                            setTimeout(function() {
+                                document.getElementById('loader').style.display = 'none';
+                            }, 1000);
+                            
+                            fallbackStream.getTracks().forEach(track => track.stop());
+                        })
+                        .catch(function(fallbackErr) {
+                            console.error("❌ All camera access failed:", fallbackErr);
+                            showError("Cannot access any camera: " + fallbackErr.message);
+                            startBtn.disabled = false;
+                            startBtn.textContent = '🔄 RETRY';
+                        });
+                    });
+                });
+                
+                // Обработка ошибок сцены
+                scene.addEventListener('arError', function(event) {
+                    console.error("AR Error:", event.detail.error);
+                    showError("AR System Error: " + event.detail.error);
+                });
+                
+                // События обнаружения маркера
+                scene.addEventListener('targetFound', function() {
+                    console.log("🎯 Target found!");
+                    mainStatus.textContent = '>>> TARGET ACQUIRED';
+                    mainStatus.style.color = '#0ff';
+                });
+                
+                scene.addEventListener('targetLost', function() {
+                    mainStatus.textContent = '>>> SCANNING...';
+                    mainStatus.style.color = '#0f0';
+                });
+                
+            } catch (error) {
+                console.error("❌ Scene creation error:", error);
+                showError("Failed to create AR scene: " + error.message);
+                startBtn.disabled = false;
+                startBtn.textContent = '🔄 RETRY';
+            }
+        }
+        
+        // Функция показа ошибок
+        function showError(message) {
+            console.error("Error:", message);
+            document.getElementById('error').innerHTML = message;
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('main-status').textContent = '>>> ERROR';
+            document.getElementById('main-status').style.color = '#f00';
+        }
+        
+        // Автоматический тест камеры при загрузке
+        window.addEventListener('load', function() {
+            console.log("📄 Page fully loaded");
+            document.getElementById('console-status').textContent = 'Page loaded';
+            
+            // Через 3 секунды предлагаем протестировать камеру
+            setTimeout(function() {
+                if (!document.getElementById('error').style.display) {
+                    console.log("Offering camera test...");
+                    document.getElementById('main-status').textContent = '>>> CLICK BUTTON TO START';
+                }
+            }, 3000);
+        });
+        
+        // Обработка глобальных ошибок
+        window.addEventListener('error', function(event) {
+            console.error("Global error:", event.error);
+            document.getElementById('console-status').textContent = 'Error: ' + event.message;
+        });
     </script>
 </body>
 </html>
