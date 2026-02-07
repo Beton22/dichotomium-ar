@@ -2,10 +2,9 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Scanner - CDN Test</title>
+    <title>AR Scanner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     
-    <!-- ПРЯМЫЕ CDN ССЫЛКИ -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     
@@ -13,102 +12,110 @@
         body {
             margin: 0;
             padding: 0;
-            background: black;
-            color: lime;
+            background: #000;
+            color: #0f0;
             font-family: monospace;
+            overflow: hidden;
         }
-        #ui {
+        
+        #startScreen {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.95);
             z-index: 1000;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            text-align: center;
         }
+        
         button {
-            background: lime;
-            color: black;
+            background: #0f0;
+            color: #000;
             border: none;
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 20px 40px;
+            font-size: 20px;
             font-weight: bold;
-            margin: 20px;
             cursor: pointer;
+            margin: 30px;
+            border-radius: 5px;
+            font-family: monospace;
         }
+        
         #status {
-            color: cyan;
-            margin: 10px;
+            color: #0ff;
+            margin: 20px;
+            font-size: 18px;
+        }
+        
+        #trackingInfo {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 15px;
+            border-radius: 5px;
+            color: #0f0;
+            z-index: 1001;
+            border: 1px solid #0f0;
+        }
+        
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <h1>🧬 AR Scanner - CDN Test</h1>
-        <div id="status">Testing CDN libraries...</div>
-        <button id="startBtn">START TEST</button>
-        <div id="info" style="margin-top: 20px; font-size: 12px; color: #888;">
-            A-Frame 1.5.0 + MindAR 1.2.5 from CDN
+    <div id="startScreen">
+        <h1 style="color: #0f0; margin-bottom: 30px;">🧬 AR SCANNER</h1>
+        <div id="status">Система готова</div>
+        <button id="startBtn">АКТИВИРОВАТЬ СКАНЕР</button>
+        <div style="color: #888; margin-top: 20px; font-size: 14px;">
+            Наведите камеру на маркер
         </div>
     </div>
-<!-- Кольцо -->   
-   <a-entity mindar-image-target="targetIndex: 0">
-    <a-gltf-model
-        src="Ring.glb"
-        position="0 0 0"
-        rotation="0 0 0"
-        scale="0.1 0.1 0.1"
-        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
-    </a-gltf-model>
-</a-entity>
+    
+    <div id="trackingInfo" class="hidden">
+        Статус: <span id="trackingStatus">ОЖИДАНИЕ</span>
+    </div>
+    
+    <a-scene id="arScene"
+             vr-mode-ui="enabled: false"
+             device-orientation-permission-ui="enabled: false"
+             embedded
+             class="hidden">
+             
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        
+        <a-entity mindar-image-target="targetIndex: 0">
+            <a-gltf-model
+                src="Ring.glb"
+                position="0 0 0"
+                rotation="0 0 0"
+                scale="0.1 0.1 0.1"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+            </a-gltf-model>
+        </a-entity>
+        
+        <a-light type="ambient" color="#FFF" intensity="0.6"></a-light>
+        <a-light type="directional" position="1 2 3" intensity="0.5"></a-light>
+    </a-scene>
 
     <script>
-        console.log("=== CDN Test Started ===");
-        
+        const startScreen = document.getElementById('startScreen');
         const startBtn = document.getElementById('startBtn');
         const status = document.getElementById('status');
-        const ui = document.getElementById('ui');
-        const scene = document.querySelector('a-scene');
+        const trackingInfo = document.getElementById('trackingInfo');
+        const trackingStatus = document.getElementById('trackingStatus');
+        const arScene = document.getElementById('arScene');
         
-        let checkCount = 0;
-        
-        function checkCDN() {
-            checkCount++;
-            console.log(`Check ${checkCount}: AFRAME=${typeof AFRAME}`);
-            
-            if (typeof AFRAME === 'undefined') {
-                status.textContent = `Waiting for A-Frame... (${checkCount})`;
-                if (checkCount < 20) {
-                    setTimeout(checkCDN, 1000);
-                } else {
-                    status.textContent = "❌ A-Frame CDN failed";
-                }
-                return;
-            }
-            
-            console.log("✅ A-Frame loaded:", AFRAME.version);
-            status.textContent = "A-Frame loaded, checking MindAR...";
-            
-            if (!AFRAME.systems || !AFRAME.systems['mindar-image-system']) {
-                status.textContent = `Waiting for MindAR... (${checkCount})`;
-                if (checkCount < 20) {
-                    setTimeout(checkCDN, 1000);
-                } else {
-                    status.textContent = "❌ MindAR CDN failed";
-                }
-                return;
-            }
-            
-            console.log("✅ MindAR system found!");
-            status.textContent = "✅ CDN libraries loaded!";
-            startBtn.disabled = false;
-            startBtn.textContent = "START AR";
-        }
+        let mindarSystem = null;
         
         startBtn.addEventListener('click', async () => {
-            status.textContent = "Requesting camera access...";
+            status.textContent = "Запрос доступа к камере...";
+            startBtn.disabled = true;
             
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -117,22 +124,51 @@
                 
                 stream.getTracks().forEach(track => track.stop());
                 
-                // Запускаем AR
-                const mindarSystem = scene.systems['mindar-image-system'];
+                // Запускаем AR сцену
+                startScreen.classList.add('hidden');
+                arScene.classList.remove('hidden');
+                trackingInfo.classList.remove('hidden');
+                
+                // Запускаем MindAR
+                mindarSystem = arScene.systems['mindar-image-system'];
                 if (mindarSystem) {
                     mindarSystem.start();
-                    ui.style.display = 'none';
-                    scene.style.display = 'block';
-                    console.log("✅ AR started from CDN!");
+                    status.textContent = "Сканирование...";
                 }
+                
             } catch (error) {
-                console.error("Camera error:", error);
-                status.textContent = "Camera error: " + error.message;
+                console.error("Ошибка камеры:", error);
+                status.textContent = "Ошибка доступа к камере";
+                startBtn.disabled = false;
             }
         });
         
-        // Начинаем проверку CDN
-        setTimeout(checkCDN, 1000);
+        // Обработчики событий AR
+        arScene.addEventListener('targetFound', () => {
+            trackingStatus.textContent = "МАРКЕР НАЙДЕН";
+            trackingStatus.style.color = "#0f0";
+        });
+        
+        arScene.addEventListener('targetLost', () => {
+            trackingStatus.textContent = "ПОИСК МАРКЕРА";
+            trackingStatus.style.color = "#ff0";
+        });
+        
+        arScene.addEventListener('arError', (event) => {
+            console.error("AR ошибка:", event.detail.error);
+            trackingStatus.textContent = "ОШИБКА";
+            trackingStatus.style.color = "#f00";
+        });
+        
+        // Автозапуск при загрузке библиотек
+        setTimeout(() => {
+            if (window.AFRAME && AFRAME.systems && AFRAME.systems['mindar-image-system']) {
+                status.textContent = "Система готова к работе";
+                console.log("Библиотеки загружены");
+            } else {
+                status.textContent = "Ошибка загрузки библиотек";
+            }
+        }, 2000);
     </script>
 </body>
 </html>
