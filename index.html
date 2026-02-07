@@ -1,13 +1,97 @@
-<!D<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
-    <script src="aframe.min.js"></script>
-    <script src="mindar-image-aframe.prod.js"></script>
+    <!-- CDN ссылки как в рабочей версии -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            overflow: hidden;
+        }
+        
+        #ui {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .console {
+            background: #111;
+            border: 2px solid #0f0;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        h1 {
+            color: #0f0;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        
+        button:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+        }
+        
+        #status {
+            color: #0ff;
+            margin: 15px 0;
+        }
+        
+        #error {
+            color: #f00;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255,0,0,0.1);
+            border-radius: 5px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
+    <div id="ui">
+        <div class="console">
+            <h1>🧬 AR SCANNER</h1>
+            <div id="status">Загрузка системы...</div>
+            <button id="startBtn" disabled>АКТИВИРОВАТЬ СКАНЕР</button>
+            <div id="error"></div>
+        </div>
+    </div>
+    
+    <!-- AR сцена без изменений (как в рабочей версии) -->
     <a-scene mindar-image="imageTargetSrc: targets.mind; autoStart: false;" 
-             vr-mode-ui="enabled: false">
+             vr-mode-ui="enabled: false"
+             device-orientation-permission-ui="enabled: false">
+             
         <a-camera position="0 0 0"></a-camera>
+        
         <a-entity mindar-image-target="targetIndex: 0">
             <a-gltf-model src="Ring.glb"
                          position="0 0 0"
@@ -17,17 +101,78 @@
             </a-gltf-model>
         </a-entity>
     </a-scene>
-    
+
     <script>
-        setTimeout(() => {
-            const scene = document.querySelector('a-scene');
-            if (scene.systems['mindar-image-system']) {
-                scene.systems['mindar-image-system'].start();
-                console.log("AR started");
-            } else {
-                console.error("MindAR system not found");
+        const ui = document.getElementById('ui');
+        const startBtn = document.getElementById('startBtn');
+        const status = document.getElementById('status');
+        const error = document.getElementById('error');
+        const scene = document.querySelector('a-scene');
+        
+        let mindarSystem = null;
+        
+        // Проверяем загрузку библиотек
+        function checkLibraries() {
+            if (typeof AFRAME === 'undefined') {
+                setTimeout(checkLibraries, 500);
+                return;
             }
-        }, 2000);
+            
+            console.log("✅ A-Frame загружен");
+            
+            if (!AFRAME.systems || !AFRAME.systems['mindar-image-system']) {
+                setTimeout(checkLibraries, 500);
+                return;
+            }
+            
+            console.log("✅ MindAR система найдена");
+            mindarSystem = scene.systems['mindar-image-system'];
+            
+            status.textContent = "Система готова";
+            startBtn.disabled = false;
+        }
+        
+        // Начинаем проверку
+        setTimeout(checkLibraries, 1000);
+        
+        // Запуск AR
+        startBtn.addEventListener('click', async () => {
+            status.textContent = "Запрос доступа к камере...";
+            startBtn.disabled = true;
+            error.style.display = 'none';
+            
+            try {
+                // Простая проверка камеры
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Запускаем AR и скрываем UI
+                if (mindarSystem) {
+                    mindarSystem.start();
+                    ui.style.display = 'none';
+                    console.log("AR активирован");
+                }
+                
+            } catch (err) {
+                console.error("Ошибка камеры:", err);
+                error.textContent = "Ошибка доступа к камере: " + err.message;
+                error.style.display = 'block';
+                startBtn.disabled = false;
+                status.textContent = "Ошибка";
+            }
+        });
+        
+        // Если через 10 секунд не загрузилось
+        setTimeout(() => {
+            if (startBtn.disabled) {
+                status.textContent = "Ошибка загрузки";
+                error.textContent = "Проверьте подключение к интернету";
+                error.style.display = 'block';
+            }
+        }, 10000);
     </script>
 </body>
 </html>
