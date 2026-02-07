@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- CDN ссылки как в рабочей версии -->
+    <!-- CDN ссылки -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     
@@ -85,33 +85,100 @@
         </div>
     </div>
     
-    <!-- AR сцена без изменений (как в рабочей версии) -->
-    <a-scene mindar-image="imageTargetSrc: targets.mind; autoStart: false;" 
+    <!-- AR сцена с настройками стабильности -->
+    <a-scene mindar-image="imageTargetSrc: targets.mind; 
+                          autoStart: false;
+                          filterMinCF: 0.01;
+                          filterBeta: 3000;
+                          missTolerance: 0;
+                          warmupTolerance: 0;
+                          maxTrack: 1;"
              vr-mode-ui="enabled: false"
              device-orientation-permission-ui="enabled: false">
              
         <a-camera position="0 0 0"></a-camera>
         
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model src="Ring.glb"
+            <a-gltf-model id="ar-model"
+                         src="Ring.glb"
                          position="0 0 0"
                          rotation="0 0 0"
                          scale="0.1 0.1 0.1"
-                         animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+                         smooth-transform="positionSmoothing: 0.2; rotationSmoothing: 0.15;"
+                         animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
             </a-gltf-model>
         </a-entity>
+        
+        <a-light type="ambient" color="#FFF" intensity="0.8"></a-light>
+        <a-light type="directional" position="2 5 3" intensity="0.6"></a-light>
     </a-scene>
 
     <script>
+        // Компонент для сглаживания движений
+        AFRAME.registerComponent('smooth-transform', {
+            schema: {
+                positionSmoothing: { type: 'number', default: 0.1 },
+                rotationSmoothing: { type: 'number', default: 0.1 },
+                scaleSmoothing: { type: 'number', default: 0.1 }
+            },
+
+            init: function() {
+                this.targetPosition = new THREE.Vector3();
+                this.targetRotation = new THREE.Euler();
+                this.targetScale = new THREE.Vector3();
+                
+                this.currentPosition = new THREE.Vector3();
+                this.currentRotation = new THREE.Euler();
+                this.currentScale = new THREE.Vector3();
+                
+                const current = this.el.object3D;
+                this.currentPosition.copy(current.position);
+                this.currentRotation.copy(current.rotation);
+                this.currentScale.copy(current.scale);
+            },
+
+            tick: function(time, deltaTime) {
+                const el = this.el;
+                const data = this.data;
+                
+                // Сохраняем текущие реальные значения
+                this.targetPosition.copy(el.object3D.position);
+                this.targetRotation.copy(el.object3D.rotation);
+                this.targetScale.copy(el.object3D.scale);
+                
+                // Плавная интерполяция
+                this.currentPosition.lerp(this.targetPosition, data.positionSmoothing);
+                this.currentRotation.x = THREE.MathUtils.lerp(
+                    this.currentRotation.x, 
+                    this.targetRotation.x, 
+                    data.rotationSmoothing
+                );
+                this.currentRotation.y = THREE.MathUtils.lerp(
+                    this.currentRotation.y, 
+                    this.targetRotation.y, 
+                    data.rotationSmoothing
+                );
+                this.currentRotation.z = THREE.MathUtils.lerp(
+                    this.currentRotation.z, 
+                    this.targetRotation.z, 
+                    data.rotationSmoothing
+                );
+                this.currentScale.lerp(this.targetScale, data.scaleSmoothing);
+                
+                // Применяем сглаженные значения
+                el.object3D.position.copy(this.currentPosition);
+                el.object3D.rotation.copy(this.currentRotation);
+                el.object3D.scale.copy(this.currentScale);
+            }
+        });
+        
+        // Проверяем загрузку библиотек
         const ui = document.getElementById('ui');
         const startBtn = document.getElementById('startBtn');
         const status = document.getElementById('status');
         const error = document.getElementById('error');
         const scene = document.querySelector('a-scene');
         
-        let mindarSystem = null;
-        
-        // Проверяем загрузку библиотек
         function checkLibraries() {
             if (typeof AFRAME === 'undefined') {
                 setTimeout(checkLibraries, 500);
@@ -126,8 +193,6 @@
             }
             
             console.log("✅ MindAR система найдена");
-            mindarSystem = scene.systems['mindar-image-system'];
-            
             status.textContent = "Система готова";
             startBtn.disabled = false;
         }
@@ -142,18 +207,22 @@
             error.style.display = 'none';
             
             try {
-                // Простая проверка камеры
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
                 });
                 
                 stream.getTracks().forEach(track => track.stop());
                 
                 // Запускаем AR и скрываем UI
+                const mindarSystem = scene.systems['mindar-image-system'];
                 if (mindarSystem) {
                     mindarSystem.start();
                     ui.style.display = 'none';
-                    console.log("AR активирован");
+                    console.log("AR активирован с улучшенной стабильностью");
                 }
                 
             } catch (err) {
