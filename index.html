@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>AR Scanner - Local Version</title>
+    <title>AR Scanner - Fixed</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     
     <!-- Локальные файлы -->
@@ -87,6 +87,18 @@
         .hidden {
             display: none !important;
         }
+        
+        #debug {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #888;
+            padding: 5px;
+            font-size: 12px;
+            border-radius: 3px;
+            z-index: 1002;
+        }
     </style>
 </head>
 <body>
@@ -94,7 +106,7 @@
         <div class="console">
             <h1>🧬 AR SCANNER</h1>
             <div id="status">Loading AR system...</div>
-            <button id="startBtn" disabled>INITIALIZE SCANNER</button>
+            <button id="startBtn" onclick="startAR()" disabled>INITIALIZE SCANNER</button>
             <div id="error"></div>
             <div style="margin-top: 20px; color: #888; font-size: 12px;">
                 Local build | No CDN required
@@ -106,13 +118,12 @@
         Status: <span id="trackingStatus">INACTIVE</span>
     </div>
     
-    <!-- AR сцена -->
-    <a-scene id="arScene" 
-             vr-mode-ui="enabled: false" 
-             device-orientation-permission-ui="enabled: false"
-             embedded
-             class="hidden">
-    </a-scene>
+    <div id="debug">
+        Debug: <span id="debugText">Initializing</span>
+    </div>
+    
+    <!-- Контейнер для AR сцены -->
+    <div id="arContainer"></div>
 
     <script>
         console.log("=== AR System Initialization ===");
@@ -123,16 +134,20 @@
         const errorDiv = document.getElementById('error');
         const trackingInfo = document.getElementById('trackingInfo');
         const trackingStatus = document.getElementById('trackingStatus');
-        const arScene = document.getElementById('arScene');
+        const debugText = document.getElementById('debugText');
+        const arContainer = document.getElementById('arContainer');
         
+        let arScene = null;
+        let mindarSystem = null;
         let checkCount = 0;
         
         // Проверка загрузки библиотек
         function checkLibraries() {
             checkCount++;
+            debugText.textContent = `Check ${checkCount}`;
             
             if (typeof AFRAME === 'undefined') {
-                status.textContent = `Loading A-Frame... (${checkCount})`;
+                status.textContent = `Loading A-Frame...`;
                 if (checkCount < 30) {
                     setTimeout(checkLibraries, 500);
                 } else {
@@ -142,9 +157,10 @@
             }
             
             console.log("✅ A-Frame loaded:", AFRAME.version);
+            status.textContent = "A-Frame loaded, checking MindAR...";
             
             if (!AFRAME.systems || !AFRAME.systems['mindar-image-system']) {
-                status.textContent = `Loading MindAR... (${checkCount})`;
+                status.textContent = `Loading MindAR...`;
                 if (checkCount < 30) {
                     setTimeout(checkLibraries, 500);
                 } else {
@@ -156,6 +172,7 @@
             console.log("✅ MindAR system found");
             status.textContent = "System ready!";
             startBtn.disabled = false;
+            debugText.textContent = "Libraries loaded";
         }
         
         // Показать ошибку
@@ -164,12 +181,15 @@
             errorDiv.textContent = message;
             errorDiv.style.display = 'block';
             status.textContent = "Error";
+            debugText.textContent = "Error: " + message.substring(0, 30);
         }
         
         // Запуск AR
-        startBtn.addEventListener('click', async function() {
+        async function startAR() {
+            console.log("🚀 Starting AR...");
             status.textContent = "Requesting camera...";
             startBtn.disabled = true;
+            debugText.textContent = "Requesting camera";
             
             try {
                 // Проверяем камеру
@@ -182,6 +202,9 @@
                 });
                 
                 stream.getTracks().forEach(track => track.stop());
+                console.log("✅ Camera access granted");
+                status.textContent = "Creating AR scene...";
+                debugText.textContent = "Creating scene";
                 
                 // Создаем AR сцену
                 createARScene();
@@ -190,45 +213,54 @@
                 console.error("Camera error:", err);
                 let errorMsg = "Camera error: ";
                 if (err.name === 'NotAllowedError') {
-                    errorMsg = "Please allow camera access";
+                    errorMsg = "Please allow camera access in browser settings";
                 } else if (err.name === 'NotFoundError') {
-                    errorMsg = "No camera found";
+                    errorMsg = "No camera found on this device";
                 } else {
                     errorMsg += err.message;
                 }
                 showError(errorMsg);
                 startBtn.disabled = false;
             }
-        });
+        }
         
         // Создание AR сцены
         function createARScene() {
-            status.textContent = "Creating AR environment...";
+            console.log("Creating AR scene...");
             
-            // Очищаем сцену
-            arScene.innerHTML = '';
+            // Очищаем контейнер
+            arContainer.innerHTML = '';
             
-            // Улучшенные настройки для стабильности
+            // Создаем новую сцену
+            arScene = document.createElement('a-scene');
+            
+            // НАСТРОЙКИ MINDAR
             const mindarConfig = {
                 imageTargetSrc: 'targets.mind',
-                autoStart: false,
-                filterMinCF: 0.01,    // Минимальный коэффициент корреляции
-                filterBeta: 1000,     // Коэффициент сглаживания
-                missTolerance: 0,     // Толерантность к пропаданию
-                warmupTolerance: 0,   // Толерантность к разогреву
-                maxTrack: 1           // Максимум один трек
+                autoStart: false,  // НЕ запускать автоматически
+                filterMinCF: 0.01,
+                filterBeta: 1000,
+                missTolerance: 0,
+                warmupTolerance: 0,
+                maxTrack: 1
             };
             
             // Устанавливаем атрибут mindar-image
-            arScene.setAttribute('mindar-image', 
-                `imageTargetSrc: ${mindarConfig.imageTargetSrc};
-                 autoStart: ${mindarConfig.autoStart};
-                 filterMinCF: ${mindarConfig.filterMinCF};
-                 filterBeta: ${mindarConfig.filterBeta};
-                 missTolerance: ${mindarConfig.missTolerance};
-                 warmupTolerance: ${mindarConfig.warmupTolerance};
-                 maxTrack: ${mindarConfig.maxTrack};`
-            );
+            arScene.setAttribute('mindar-image', `
+                imageTargetSrc: ${mindarConfig.imageTargetSrc};
+                autoStart: ${mindarConfig.autoStart};
+                filterMinCF: ${mindarConfig.filterMinCF};
+                filterBeta: ${mindarConfig.filterBeta};
+                missTolerance: ${mindarConfig.missTolerance};
+                warmupTolerance: ${mindarConfig.warmupTolerance};
+                maxTrack: ${mindarConfig.maxTrack};
+                uiLoading: #startScreen;
+                uiScanning: #trackingInfo;
+            `);
+            
+            arScene.setAttribute('vr-mode-ui', 'enabled: false');
+            arScene.setAttribute('device-orientation-permission-ui', 'enabled: false');
+            arScene.setAttribute('embedded', '');
             
             // Камера
             const camera = document.createElement('a-camera');
@@ -240,14 +272,12 @@
             const target = document.createElement('a-entity');
             target.setAttribute('mindar-image-target', 'targetIndex: 0');
             
-            const model = document.createElement('a-gltf-model');
-            model.setAttribute('src', 'Ring.glb');
-            model.setAttribute('position', '0 0 0');
-            model.setAttribute('rotation', '0 0 0');
-            model.setAttribute('scale', '0.1 0.1 0.1');
-            
-            // Плавная анимация вращения
-            model.setAttribute('animation', {
+            // Сначала используем простой куб для теста
+            const testObject = document.createElement('a-box');
+            testObject.setAttribute('position', '0 0 0');
+            testObject.setAttribute('color', '#00ff00');
+            testObject.setAttribute('scale', '0.2 0.2 0.2');
+            testObject.setAttribute('animation', {
                 property: 'rotation',
                 to: '0 360 0',
                 loop: true,
@@ -255,7 +285,7 @@
                 easing: 'linear'
             });
             
-            target.appendChild(model);
+            target.appendChild(testObject);
             arScene.appendChild(target);
             
             // Освещение
@@ -271,46 +301,93 @@
             directionalLight.setAttribute('intensity', '0.4');
             arScene.appendChild(directionalLight);
             
+            // Добавляем сцену в контейнер
+            arContainer.appendChild(arScene);
+            
+            // Подписываемся на события ДО запуска
+            arScene.addEventListener('loaded', onSceneLoaded);
+            arScene.addEventListener('arReady', onARReady);
+            arScene.addEventListener('arError', onARError);
+            arScene.addEventListener('targetFound', onTargetFound);
+            arScene.addEventListener('targetLost', onTargetLost);
+            
             // Показываем сцену
-            arScene.classList.remove('hidden');
             startScreen.classList.add('hidden');
             trackingInfo.style.display = 'block';
+            debugText.textContent = "Scene created";
+        }
+        
+        // Обработчики событий
+        function onSceneLoaded() {
+            console.log("✅ Scene loaded");
+            debugText.textContent = "Scene loaded";
             
-            // Запускаем MindAR после загрузки сцены
-            arScene.addEventListener('loaded', function() {
-                const mindarSystem = arScene.systems['mindar-image-system'];
-                if (mindarSystem) {
+            // ПОСЛЕ загрузки сцены запускаем MindAR
+            setTimeout(() => {
+                if (arScene && arScene.systems && arScene.systems['mindar-image-system']) {
+                    mindarSystem = arScene.systems['mindar-image-system'];
+                    console.log("Starting MindAR system...");
                     mindarSystem.start();
-                    console.log("AR system started");
-                    status.textContent = "AR active";
+                    debugText.textContent = "MindAR starting";
+                } else {
+                    console.error("MindAR system not found in scene");
+                    showError("MindAR system not found");
                 }
-            });
+            }, 1000);
+        }
+        
+        function onARReady() {
+            console.log("✅ AR system ready");
+            status.textContent = "AR active";
+            debugText.textContent = "AR ready";
+        }
+        
+        function onARError(event) {
+            console.error("AR Error:", event.detail.error);
+            showError("AR Error: " + event.detail.error);
+            debugText.textContent = "AR error";
+        }
+        
+        function onTargetFound() {
+            console.log("🎯 Target found");
+            trackingStatus.textContent = 'ACTIVE';
+            trackingStatus.style.color = '#0f0';
+            debugText.textContent = "Target found";
             
-            // События трекинга
-            arScene.addEventListener('targetFound', function() {
-                trackingStatus.textContent = 'ACTIVE';
-                trackingStatus.style.color = '#0f0';
-                console.log("Target found");
-            });
-            
-            arScene.addEventListener('targetLost', function() {
-                trackingStatus.textContent = 'SEARCHING';
-                trackingStatus.style.color = '#ff0';
-                console.log("Target lost");
-            });
-            
-            arScene.addEventListener('arError', function(event) {
-                console.error("AR error:", event.detail.error);
-                trackingStatus.textContent = 'ERROR';
-                trackingStatus.style.color = '#f00';
-                showError("AR Error: " + event.detail.error);
-            });
+            // Меняем объект на вашу модель после обнаружения таргета
+            setTimeout(() => {
+                const target = arScene.querySelector('[mindar-image-target]');
+                if (target) {
+                    target.innerHTML = '';
+                    const model = document.createElement('a-gltf-model');
+                    model.setAttribute('src', 'Ring.glb');
+                    model.setAttribute('position', '0 0 0');
+                    model.setAttribute('rotation', '0 0 0');
+                    model.setAttribute('scale', '0.1 0.1 0.1');
+                    model.setAttribute('animation', {
+                        property: 'rotation',
+                        to: '0 360 0',
+                        loop: true,
+                        dur: 10000,
+                        easing: 'linear'
+                    });
+                    target.appendChild(model);
+                    console.log("Model loaded");
+                }
+            }, 500);
+        }
+        
+        function onTargetLost() {
+            console.log("Target lost");
+            trackingStatus.textContent = 'SEARCHING';
+            trackingStatus.style.color = '#ff0';
+            debugText.textContent = "Target lost";
         }
         
         // Начинаем проверку библиотек
-        setTimeout(checkLibraries, 500);
+        setTimeout(checkLibraries, 1000);
         
-        // Логирование для отладки
+        // Дебаг информация
         console.log("Page URL:", window.location.href);
         console.log("User Agent:", navigator.userAgent);
     </script>
