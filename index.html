@@ -38,6 +38,12 @@
         
         h1 {
             color: #0f0;
+            margin-bottom: 10px;
+        }
+        
+        #version {
+            color: #888;
+            font-size: 12px;
             margin-bottom: 20px;
         }
         
@@ -63,6 +69,7 @@
         #status {
             color: #0ff;
             margin: 15px 0;
+            min-height: 24px;
         }
         
         #error {
@@ -73,15 +80,43 @@
             border-radius: 5px;
             display: none;
         }
+        
+        #build-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 11px;
+            color: #666;
+            background: rgba(0,0,0,0.7);
+            padding: 5px 8px;
+            border-radius: 3px;
+            z-index: 1001;
+        }
+        
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
+    <!-- Информация о сборке (всегда видна) -->
+    <div id="build-info">
+        <div>AR Scanner <span id="version-display">v1.0.0</span></div>
+        <div>Build: <span id="build-date">loading...</span></div>
+        <div id="cache-status" style="color: #f80;"></div>
+    </div>
+    
     <div id="ui">
         <div class="console">
             <h1>🧬 AR SCANNER</h1>
+            <div id="version">Версия: <span id="version-number">v1.0.0</span></div>
             <div id="status">Загрузка системы...</div>
             <button id="startBtn" disabled>АКТИВИРОВАТЬ СКАНЕР</button>
             <div id="error"></div>
+            <div style="margin-top: 20px; color: #666; font-size: 12px;">
+                <div>Для обновления страницы нажмите Ctrl+F5</div>
+                <div id="cache-hint" style="color: #f80; margin-top: 5px;"></div>
+            </div>
         </div>
     </div>
     
@@ -114,6 +149,44 @@
     </a-scene>
 
     <script>
+        // ========== КОНФИГУРАЦИЯ ВЕРСИИ ==========
+        // МЕНЯЙТЕ ЭТУ ВЕРСИЮ ПРИ КАЖДОМ ОБНОВЛЕНИИ
+        const APP_VERSION = '1.1.0';
+        // ========================================
+        
+        // Автоматическая дата сборки
+        const BUILD_DATE = new Date().toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        // Проверка кеша
+        let isCacheLoaded = false;
+        const CACHE_KEY = 'ar_scanner_version';
+        const lastVersion = localStorage.getItem(CACHE_KEY);
+        
+        if (lastVersion && lastVersion === APP_VERSION) {
+            isCacheLoaded = true;
+        }
+        
+        // Сохраняем текущую версию
+        localStorage.setItem(CACHE_KEY, APP_VERSION);
+        
+        // ========== ОТОБРАЖЕНИЕ ИНФОРМАЦИИ ==========
+        document.getElementById('version-display').textContent = 'v' + APP_VERSION;
+        document.getElementById('version-number').textContent = 'v' + APP_VERSION;
+        document.getElementById('build-date').textContent = BUILD_DATE;
+        
+        if (isCacheLoaded) {
+            document.getElementById('cache-status').textContent = 'Кеш: используется';
+            document.getElementById('cache-hint').textContent = 'Возможно старая версия. Нажмите Ctrl+F5 для обновления';
+        } else {
+            document.getElementById('cache-status').textContent = 'Кеш: свежая версия';
+        }
+        
         // Компонент для сглаживания движений
         AFRAME.registerComponent('smooth-transform', {
             schema: {
@@ -141,12 +214,10 @@
                 const el = this.el;
                 const data = this.data;
                 
-                // Сохраняем текущие реальные значения
                 this.targetPosition.copy(el.object3D.position);
                 this.targetRotation.copy(el.object3D.rotation);
                 this.targetScale.copy(el.object3D.scale);
                 
-                // Плавная интерполяция
                 this.currentPosition.lerp(this.targetPosition, data.positionSmoothing);
                 this.currentRotation.x = THREE.MathUtils.lerp(
                     this.currentRotation.x, 
@@ -165,29 +236,35 @@
                 );
                 this.currentScale.lerp(this.targetScale, data.scaleSmoothing);
                 
-                // Применяем сглаженные значения
                 el.object3D.position.copy(this.currentPosition);
                 el.object3D.rotation.copy(this.currentRotation);
                 el.object3D.scale.copy(this.currentScale);
             }
         });
         
-        // Проверяем загрузку библиотек
+        // ========== ОСНОВНАЯ ЛОГИКА ==========
         const ui = document.getElementById('ui');
         const startBtn = document.getElementById('startBtn');
         const status = document.getElementById('status');
         const error = document.getElementById('error');
         const scene = document.querySelector('a-scene');
         
+        // Логирование версии
+        console.log(`=== AR Scanner v${APP_VERSION} ===`);
+        console.log(`Build date: ${BUILD_DATE}`);
+        console.log(`Cache status: ${isCacheLoaded ? 'loaded from cache' : 'fresh load'}`);
+        
         function checkLibraries() {
             if (typeof AFRAME === 'undefined') {
+                status.textContent = "Загрузка A-Frame...";
                 setTimeout(checkLibraries, 500);
                 return;
             }
             
-            console.log("✅ A-Frame загружен");
+            console.log("✅ A-Frame загружен, версия:", AFRAME.version);
             
             if (!AFRAME.systems || !AFRAME.systems['mindar-image-system']) {
+                status.textContent = "Загрузка MindAR...";
                 setTimeout(checkLibraries, 500);
                 return;
             }
@@ -222,7 +299,7 @@
                 if (mindarSystem) {
                     mindarSystem.start();
                     ui.style.display = 'none';
-                    console.log("AR активирован с улучшенной стабильностью");
+                    console.log("AR активирован");
                 }
                 
             } catch (err) {
@@ -242,6 +319,13 @@
                 error.style.display = 'block';
             }
         }, 10000);
+        
+        // Сообщение об обновлении при F5
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                document.getElementById('cache-hint').textContent = 'Обновление...';
+            }
+        });
     </script>
 </body>
 </html>
