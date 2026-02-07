@@ -123,8 +123,8 @@
     <!-- AR сцена с настройками стабильности -->
     <a-scene mindar-image="imageTargetSrc: targets.mind; 
                           autoStart: false;
-                          filterMinCF: 0.12;
-                          filterBeta: 20000;
+                          filterMinCF: 0.24;
+                          filterBeta: 40000;
                           missTolerance: 0;
                           warmupTolerance: 0;
                           maxTrack: 1;"
@@ -139,7 +139,7 @@
                          position="0 0 0"
                          rotation="0 0 0"
                          scale="0.1 0.1 0.1"
-                         smooth-transform="positionSmoothing: 1.2; rotationSmoothing: 1.0;"
+                         smooth-transform="positionSmoothing: 2.4; rotationSmoothing: 2.0;"
                          animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
             </a-gltf-model>
         </a-entity>
@@ -151,7 +151,7 @@
     <script>
         // ========== КОНФИГУРАЦИЯ ВЕРСИИ ==========
         // МЕНЯЙТЕ ЭТУ ВЕРСИЮ ПРИ КАЖДОМ ОБНОВЛЕНИИ
-        const APP_VERSION = '1.4.0';
+        const APP_VERSION = '1.5.0';
         // ========================================
         
         // Автоматическая дата сборки
