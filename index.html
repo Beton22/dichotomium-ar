@@ -5,7 +5,7 @@
     <title>AR Scanner</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     
-    <!-- Прямые ссылки на CDN -->
+    <!-- Прямые ссылки -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     
@@ -13,34 +13,37 @@
         body {
             margin: 0;
             padding: 0;
-            background: black;
             overflow: hidden;
         }
-        
-        #status {
+        .loading {
             position: fixed;
-            top: 20px;
-            left: 20px;
-            color: lime;
-            font-family: monospace;
-            font-size: 14px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: Arial;
             z-index: 1000;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            border-radius: 5px;
         }
     </style>
 </head>
 <body>
-    <div id="status">Загрузка AR...</div>
+    <div class="loading">
+        Загрузка AR системы...
+    </div>
 
-    <!-- AR сцена с автоматическим запуском и красным кубом -->
-    <a-scene mindar-image="imageTargetSrc: targets.mind; autoStart: true;"
-             vr-mode-ui="enabled: false"
-             device-orientation-permission-ui="enabled: false"
-             embedded>
+    <!-- Сцена с кнопками AR/VR -->
+    <a-scene mindar-image="imageTargetSrc: targets.mind; autoStart: false;"
+             embedded
+             renderer="colorManagement: true;"
+             loading-screen="enabled: false">
              
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        <!-- Камера -->
+        <a-camera position="0 0 0"></a-camera>
         
         <!-- Красный куб -->
         <a-entity mindar-image-target="targetIndex: 0">
@@ -51,43 +54,28 @@
             </a-box>
         </a-entity>
         
+        <!-- Освещение -->
         <a-light type="ambient" color="#FFF" intensity="0.6"></a-light>
         <a-light type="directional" position="1 1 1" intensity="0.4"></a-light>
+        
+        <!-- Фон (убираем черный) -->
+        <a-sky color="#000000"></a-sky>
     </a-scene>
 
     <script>
-        const status = document.getElementById('status');
+        document.querySelector('.loading').style.display = 'none';
         
-        // Обновляем статус
         const scene = document.querySelector('a-scene');
         
-        scene.addEventListener('arReady', () => {
-            status.textContent = 'AR готов. Ищите маркер...';
-        });
-        
-        scene.addEventListener('targetFound', () => {
-            status.textContent = 'Маркер найден!';
-            status.style.color = '#0f0';
-        });
-        
-        scene.addEventListener('targetLost', () => {
-            status.textContent = 'Поиск маркера...';
-            status.style.color = 'lime';
-        });
-        
-        scene.addEventListener('arError', (event) => {
-            status.textContent = 'Ошибка: ' + event.detail.error;
-            status.style.color = 'red';
-        });
-        
-        // Проверяем загрузку библиотек
-        setTimeout(() => {
-            if (!window.AFRAME) {
-                status.textContent = 'Ошибка загрузки A-Frame';
-            } else if (!AFRAME.systems['mindar-image-system']) {
-                status.textContent = 'Ошибка загрузки MindAR';
+        // Запускаем MindAR при нажатии кнопки AR
+        scene.addEventListener('enter-vr', function () {
+            if (scene.is('ar-mode')) {
+                const mindarSystem = scene.systems['mindar-image-system'];
+                if (mindarSystem) {
+                    mindarSystem.start();
+                }
             }
-        }, 5000);
+        });
     </script>
 </body>
 </html>
