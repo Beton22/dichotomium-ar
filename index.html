@@ -123,9 +123,9 @@
     <!-- AR сцена с настройками стабильности -->
     <a-scene mindar-image="imageTargetSrc: targets.mind; 
                           autoStart: false;
-                          filterMinCF: 0.24;
-                          filterBeta: 40000;
-                          missTolerance: 0;
+                          filterMinCF: 0.0001;
+                          filterBeta: 0.001;
+                          missTolerance: 10;
                           warmupTolerance: 0;
                           maxTrack: 1;"
              vr-mode-ui="enabled: false"
@@ -151,7 +151,7 @@
     <script>
         // ========== КОНФИГУРАЦИЯ ВЕРСИИ ==========
         // МЕНЯЙТЕ ЭТУ ВЕРСИЮ ПРИ КАЖДОМ ОБНОВЛЕНИИ
-        const APP_VERSION = '1.5.0';
+        const APP_VERSION = '1.6.0';
         // ========================================
         
         // Автоматическая дата сборки
