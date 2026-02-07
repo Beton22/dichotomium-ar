@@ -1,331 +1,309 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
+    <title>Dichotomium Scanner</title>
+    
+    <!-- Важно для Telegram -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
     <!-- CDN ссылки -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
     
+    <!-- Telegram Web App SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <style>
+        /* Минимальные стили для Telegram */
         body {
             margin: 0;
             padding: 0;
             background: #000;
             color: #0f0;
-            font-family: monospace;
+            font-family: 'Courier New', monospace;
             overflow: hidden;
+            position: fixed;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
         }
         
         #ui {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
+            background: #000;
             z-index: 1000;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
         }
         
-        .console {
+        .terminal {
             background: #111;
-            border: 2px solid #0f0;
-            padding: 30px;
-            border-radius: 10px;
+            border: 1px solid #0f0;
+            padding: 25px;
+            border-radius: 5px;
             text-align: center;
-            max-width: 500px;
+            max-width: 400px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
         }
         
         h1 {
             color: #0f0;
             margin-bottom: 10px;
-        }
-        
-        #version {
-            color: #888;
-            font-size: 12px;
-            margin-bottom: 20px;
-        }
-        
-        button {
-            background: #0f0;
-            color: #000;
-            border: none;
-            padding: 15px 40px;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 20px 0;
-            border-radius: 5px;
-            font-family: monospace;
-        }
-        
-        button:disabled {
-            background: #333;
-            color: #666;
-            cursor: not-allowed;
+            font-size: 22px;
         }
         
         #status {
             color: #0ff;
             margin: 15px 0;
-            min-height: 24px;
+            font-size: 16px;
+            min-height: 20px;
         }
         
-        #error {
-            color: #f00;
-            margin-top: 15px;
-            padding: 10px;
-            background: rgba(255,0,0,0.1);
-            border-radius: 5px;
-            display: none;
-        }
-        
-        #build-info {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            font-size: 11px;
-            color: #666;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 8px;
+        .scan-button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 15px 0;
             border-radius: 3px;
-            z-index: 1001;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+        }
+        
+        .scan-button:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
         }
         
         .hidden {
-            display: none;
+            display: none !important;
+        }
+        
+        a-scene {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 999 !important;
+        }
+        
+        #version {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            color: #666;
+            font-size: 11px;
+            z-index: 1001;
         }
     </style>
 </head>
 <body>
-    <!-- Информация о сборке (всегда видна) -->
-    <div id="build-info">
-        <div>AR Scanner <span id="version-display">v1.0.0</span></div>
-        <div>Build: <span id="build-date">loading...</span></div>
-        <div id="cache-status" style="color: #f80;"></div>
-    </div>
-    
+    <script>
+        // Инициализация Telegram Web App
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+            Telegram.WebApp.expand();
+            Telegram.WebApp.setHeaderColor('#000000');
+            Telegram.WebApp.setBackgroundColor('#000000');
+        }
+    </script>
+
     <div id="ui">
-        <div class="console">
-            <h1>🧬 AR SCANNER</h1>
-            <div id="version">Версия: <span id="version-number">v1.0.0</span></div>
-            <div id="status">Загрузка системы...</div>
-            <button id="startBtn" disabled>АКТИВИРОВАТЬ СКАНЕР</button>
-            <div id="error"></div>
-            <div style="margin-top: 20px; color: #666; font-size: 12px;">
-                <div>Для обновления страницы нажмите Ctrl+F5</div>
-                <div id="cache-hint" style="color: #f80; margin-top: 5px;"></div>
+        <div class="terminal">
+            <h1>>> DICHOTOMIUM SYSTEM</h1>
+            <div id="status">INITIALIZING...</div>
+            <button id="startBtn" class="scan-button" disabled>
+                INITIALIZE SCANNER
+            </button>
+            <div style="color: #666; font-size: 12px; margin-top: 20px;">
+                Point camera at glyph marker<br>
+                Ensure adequate lighting
             </div>
         </div>
     </div>
     
-    <!-- AR сцена с настройками стабильности -->
-    <a-scene mindar-image="imageTargetSrc: targets.mind; 
-                          autoStart: false;
-                          filterMinCF: 0.0001;
-                          filterBeta: 0.001;
-                          missTolerance: 10;
-                          warmupTolerance: 0;
-                          maxTrack: 1;"
+    <div id="version">v1.2.0</div>
+    
+    <!-- AR сцена с ВАШИМИ НАСТРОЙКАМИ -->
+    <a-scene id="arScene"
+             renderer="alpha: true; antialias: true; precision: mediump;"
              vr-mode-ui="enabled: false"
-             device-orientation-permission-ui="enabled: false">
+             device-orientation-permission-ui="enabled: false"
+             embedded
+             class="hidden">
              
-        <a-camera position="0 0 0"></a-camera>
+        <!-- Критичные настройки для стабильности -->
+        <a-entity mindar-image="imageTargetSrc: targets.mind; 
+                                autoStart: false;
+                                filterMinCF: 0.0001;
+                                filterBeta: 0.001;
+                                missTolerance: 10;
+                                warmupTolerance: 0;
+                                maxTrack: 1">
+        </a-entity>
         
+        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+        
+        <!-- Модель без дополнительного сглаживания -->
         <a-entity mindar-image-target="targetIndex: 0">
-            <a-gltf-model id="ar-model"
-                         src="Ring.glb"
+            <a-gltf-model src="Ring.glb"
                          position="0 0 0"
                          rotation="0 0 0"
                          scale="0.1 0.1 0.1"
-                         smooth-transform="positionSmoothing: 2.4; rotationSmoothing: 2.0;"
                          animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
             </a-gltf-model>
         </a-entity>
         
-        <a-light type="ambient" color="#FFF" intensity="0.8"></a-light>
-        <a-light type="directional" position="2 5 3" intensity="0.6"></a-light>
+        <!-- Минимальное освещение -->
+        <a-light type="ambient" color="#FFF" intensity="0.5"></a-light>
+        <a-light type="directional" position="1 1 1" intensity="0.3"></a-light>
     </a-scene>
 
     <script>
-        // ========== КОНФИГУРАЦИЯ ВЕРСИИ ==========
-        // МЕНЯЙТЕ ЭТУ ВЕРСИЮ ПРИ КАЖДОМ ОБНОВЛЕНИИ
-        const APP_VERSION = '1.6.0';
-        // ========================================
-        
-        // Автоматическая дата сборки
-        const BUILD_DATE = new Date().toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-        
-        // Проверка кеша
-        let isCacheLoaded = false;
-        const CACHE_KEY = 'ar_scanner_version';
-        const lastVersion = localStorage.getItem(CACHE_KEY);
-        
-        if (lastVersion && lastVersion === APP_VERSION) {
-            isCacheLoaded = true;
-        }
-        
-        // Сохраняем текущую версию
-        localStorage.setItem(CACHE_KEY, APP_VERSION);
-        
-        // ========== ОТОБРАЖЕНИЕ ИНФОРМАЦИИ ==========
-        document.getElementById('version-display').textContent = 'v' + APP_VERSION;
-        document.getElementById('version-number').textContent = 'v' + APP_VERSION;
-        document.getElementById('build-date').textContent = BUILD_DATE;
-        
-        if (isCacheLoaded) {
-            document.getElementById('cache-status').textContent = 'Кеш: используется';
-            document.getElementById('cache-hint').textContent = 'Возможно старая версия. Нажмите Ctrl+F5 для обновления';
-        } else {
-            document.getElementById('cache-status').textContent = 'Кеш: свежая версия';
-        }
-        
-        // Компонент для сглаживания движений
-        AFRAME.registerComponent('smooth-transform', {
-            schema: {
-                positionSmoothing: { type: 'number', default: 0.1 },
-                rotationSmoothing: { type: 'number', default: 0.1 },
-                scaleSmoothing: { type: 'number', default: 0.1 }
-            },
-
-            init: function() {
-                this.targetPosition = new THREE.Vector3();
-                this.targetRotation = new THREE.Euler();
-                this.targetScale = new THREE.Vector3();
-                
-                this.currentPosition = new THREE.Vector3();
-                this.currentRotation = new THREE.Euler();
-                this.currentScale = new THREE.Vector3();
-                
-                const current = this.el.object3D;
-                this.currentPosition.copy(current.position);
-                this.currentRotation.copy(current.rotation);
-                this.currentScale.copy(current.scale);
-            },
-
-            tick: function(time, deltaTime) {
-                const el = this.el;
-                const data = this.data;
-                
-                this.targetPosition.copy(el.object3D.position);
-                this.targetRotation.copy(el.object3D.rotation);
-                this.targetScale.copy(el.object3D.scale);
-                
-                this.currentPosition.lerp(this.targetPosition, data.positionSmoothing);
-                this.currentRotation.x = THREE.MathUtils.lerp(
-                    this.currentRotation.x, 
-                    this.targetRotation.x, 
-                    data.rotationSmoothing
-                );
-                this.currentRotation.y = THREE.MathUtils.lerp(
-                    this.currentRotation.y, 
-                    this.targetRotation.y, 
-                    data.rotationSmoothing
-                );
-                this.currentRotation.z = THREE.MathUtils.lerp(
-                    this.currentRotation.z, 
-                    this.targetRotation.z, 
-                    data.rotationSmoothing
-                );
-                this.currentScale.lerp(this.targetScale, data.scaleSmoothing);
-                
-                el.object3D.position.copy(this.currentPosition);
-                el.object3D.rotation.copy(this.currentRotation);
-                el.object3D.scale.copy(this.currentScale);
-            }
-        });
-        
-        // ========== ОСНОВНАЯ ЛОГИКА ==========
+        // ========== МИНИМАЛЬНЫЙ КОД ДЛЯ СТАБИЛЬНОСТИ ==========
         const ui = document.getElementById('ui');
         const startBtn = document.getElementById('startBtn');
         const status = document.getElementById('status');
-        const error = document.getElementById('error');
-        const scene = document.querySelector('a-scene');
+        const arScene = document.getElementById('arScene');
         
-        // Логирование версии
-        console.log(`=== AR Scanner v${APP_VERSION} ===`);
-        console.log(`Build date: ${BUILD_DATE}`);
-        console.log(`Cache status: ${isCacheLoaded ? 'loaded from cache' : 'fresh load'}`);
+        let arReady = false;
+        let checkCount = 0;
         
-        function checkLibraries() {
+        // Проверка библиотек
+        function initAR() {
+            checkCount++;
+            
             if (typeof AFRAME === 'undefined') {
-                status.textContent = "Загрузка A-Frame...";
-                setTimeout(checkLibraries, 500);
+                status.textContent = `LOADING A-FRAME... [${checkCount}]`;
+                if (checkCount < 30) setTimeout(initAR, 500);
                 return;
             }
             
-            console.log("✅ A-Frame загружен, версия:", AFRAME.version);
+            console.log('✅ A-Frame loaded:', AFRAME.version);
             
             if (!AFRAME.systems || !AFRAME.systems['mindar-image-system']) {
-                status.textContent = "Загрузка MindAR...";
-                setTimeout(checkLibraries, 500);
+                status.textContent = `LOADING MINDAR... [${checkCount}]`;
+                if (checkCount < 30) setTimeout(initAR, 500);
                 return;
             }
             
-            console.log("✅ MindAR система найдена");
-            status.textContent = "Система готова";
+            console.log('✅ MindAR system ready');
+            arReady = true;
+            status.textContent = 'SYSTEM READY';
             startBtn.disabled = false;
         }
         
-        // Начинаем проверку
-        setTimeout(checkLibraries, 1000);
+        // Инициализация
+        setTimeout(initAR, 500);
         
-        // Запуск AR
+        // Запуск сканера
         startBtn.addEventListener('click', async () => {
-            status.textContent = "Запрос доступа к камере...";
+            if (!arReady) return;
+            
+            status.textContent = 'REQUESTING CAMERA...';
             startBtn.disabled = true;
-            error.style.display = 'none';
             
             try {
+                // Запрашиваем камеру с оптимальными настройками
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
+                    video: {
                         facingMode: 'environment',
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 }
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
                     }
                 });
                 
+                // Закрываем тестовый поток
                 stream.getTracks().forEach(track => track.stop());
+                console.log('✅ Camera access granted');
                 
-                // Запускаем AR и скрываем UI
-                const mindarSystem = scene.systems['mindar-image-system'];
+                // Запускаем AR
+                ui.classList.add('hidden');
+                arScene.classList.remove('hidden');
+                
+                const mindarSystem = arScene.systems['mindar-image-system'];
                 if (mindarSystem) {
                     mindarSystem.start();
-                    ui.style.display = 'none';
-                    console.log("AR активирован");
+                    console.log('✅ AR scanner started with stable settings');
+                    
+                    // Тактильный отклик в Telegram
+                    if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                        Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                    }
                 }
                 
-            } catch (err) {
-                console.error("Ошибка камеры:", err);
-                error.textContent = "Ошибка доступа к камере: " + err.message;
-                error.style.display = 'block';
+            } catch (error) {
+                console.error('❌ Camera error:', error);
+                status.textContent = 'CAMERA ERROR';
                 startBtn.disabled = false;
-                status.textContent = "Ошибка";
+                
+                let errorMsg = '';
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Please allow camera access in Telegram settings';
+                } else {
+                    errorMsg = error.message;
+                }
+                
+                if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                    Telegram.WebApp.showAlert(errorMsg);
+                }
             }
         });
         
-        // Если через 10 секунд не загрузилось
-        setTimeout(() => {
-            if (startBtn.disabled) {
-                status.textContent = "Ошибка загрузки";
-                error.textContent = "Проверьте подключение к интернету";
-                error.style.display = 'block';
-            }
-        }, 10000);
-        
-        // Сообщение об обновлении при F5
-        window.addEventListener('keydown', function(e) {
-            if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
-                document.getElementById('cache-hint').textContent = 'Обновление...';
+        // Обработка событий AR
+        arScene.addEventListener('targetFound', () => {
+            console.log('🎯 Target found');
+            if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+                Telegram.WebApp.HapticFeedback.impactOccurred('light');
             }
         });
+        
+        arScene.addEventListener('targetLost', () => {
+            console.log('Target lost');
+        });
+        
+        arScene.addEventListener('arError', (event) => {
+            console.error('AR Error:', event.detail.error);
+        });
+        
+        // Обработка кнопки "Назад" в Telegram
+        if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+            Telegram.WebApp.BackButton.onClick(() => {
+                if (!arScene.classList.contains('hidden')) {
+                    arScene.classList.add('hidden');
+                    ui.classList.remove('hidden');
+                    Telegram.WebApp.BackButton.hide();
+                }
+            });
+            
+            // Показываем кнопку "Назад" когда AR активен
+            arScene.addEventListener('targetFound', () => {
+                Telegram.WebApp.BackButton.show();
+            });
+            
+            arScene.addEventListener('targetLost', () => {
+                Telegram.WebApp.BackButton.hide();
+            });
+        }
+        
+        // Логирование информации
+        console.log('=== Dichotomium Scanner v1.2.0 ===');
+        console.log('User Agent:', navigator.userAgent);
+        console.log('Screen:', window.screen.width, 'x', window.screen.height);
+        console.log('Platform:', navigator.platform);
     </script>
 </body>
 </html>
