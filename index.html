@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Dichotomium Scanner v1.6.0</title>
+    <title>Dichotomium Scanner v1.6.1</title>
     
     <!-- Важно для Telegram -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -169,38 +169,48 @@
     <div id="debug">INIT: Starting...</div>
     
     <!-- AR сцена по примеру из документации -->
-    <a-scene id="arScene"
-             mindar-image="imageTargetSrc: targets.mind; 
-                          autoStart: false;
-                          filterMinCF: 0.001;
-                          filterBeta: 0.1;"
-             embedded
-             vr-mode-ui="enabled: false"
-             device-orientation-permission-ui="enabled: false"
-             class="hidden">
-             
-        <!-- Используем a-assets как в официальном примере -->
-        <a-assets>
-            <a-asset-item id="ring-model" src="Ring.glb"></a-asset-item>
-        </a-assets>
-        
-        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-        
-        <!-- Целевой контейнер -->
-        <a-entity mindar-image-target="targetIndex: 0">
-            <!-- Модель как в официальном примере -->
-            <a-entity gltf-model="#ring-model"
-                      position="0 0 0"
-                      rotation="0 0 0"
-                      scale="0.1 0.1 0.1"
-                      animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
-            </a-entity>
+   <!-- ЗАМЕНИТЕ ВАШУ СЦЕНУ НА ЭТУ ВЕРСИЮ -->
+<a-scene id="arScene"
+         mindar-image="imageTargetSrc: targets.mind; 
+                      autoStart: false;
+                      filterMinCF: 0.001;
+                      filterBeta: 0.1;"
+         embedded
+         renderer="antialias: true; alpha: false; logarithmicDepthBuffer: true; colorManagement: true;"
+         vr-mode-ui="enabled: false"
+         device-orientation-permission-ui="enabled: false"
+         class="hidden">
+    
+    <!-- Важно: Этот стиль заставляет видеопоток быть фоном -->
+    <style>
+        .a-canvas {
+            display: block;
+            z-index: 0 !important;
+        }
+    </style>
+    
+    <!-- Подсказка для AR (можно удалить после теста) -->
+    <a-entity position="0 0 -1" text="align: center; value: Point camera at target; color: #0F0" visible="false" id="hint"></a-entity>
+    
+    <!-- Содержимое сцены -->
+    <a-assets>
+        <a-asset-item id="ring-model" src="Ring.glb"></a-asset-item>
+    </a-assets>
+    
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    
+    <a-entity mindar-image-target="targetIndex: 0">
+        <a-entity gltf-model="#ring-model"
+                  position="0 0 0"
+                  rotation="0 0 0"
+                  scale="0.1 0.1 0.1"
+                  animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear">
         </a-entity>
-        
-        <!-- Освещение -->
-        <a-light type="ambient" color="#FFF" intensity="0.8"></a-light>
-        <a-light type="directional" position="2 5 3" intensity="0.6"></a-light>
-    </a-scene>
+    </a-entity>
+    
+    <a-light type="ambient" color="#FFF" intensity="0.8"></a-light>
+    <a-light type="directional" position="2 5 3" intensity="0.6"></a-light>
+</a-scene>
 
     <script>
         // ========== КОНФИГУРАЦИЯ ==========
